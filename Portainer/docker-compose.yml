@@ -1,0 +1,118 @@
+version: '3.7'
+
+# *******************************************************************************************************
+#                                  Network Defination
+# *******************************************************************************************************
+
+networks: #create custom network as per requirement
+       test: #name of network
+       monitoring:
+
+# *******************************************************************************************************
+#                                  Volume defination
+# *******************************************************************************************************
+
+volumes:
+       jenkins_home:
+              external: true
+       nginx_home:
+       portainer_data:
+
+
+# *******************************************************************************************************
+#                                  Main Services Defination Starts
+# *******************************************************************************************************
+
+services: #define services or container that you want to build.
+       portainer: #name of service that you want to install 
+              image: portainer/portainer:latest #pull image from docker hub of latest version
+              
+              volumes:
+                     - /var/run/docker.sock:/var/run/docker.sock
+                     - portainer_data:/data
+                     
+              networks: #define network which was created at top
+                     monitoring:
+
+              deploy:
+                     replicas: 2
+                     # sources: 
+                            # limits:
+                                   # cpus: "0.1"
+                                   # memory: 50M
+                     restart_policy:
+                            max_attempts: 2
+                            condition: on-failure
+              ports:
+                     - 8000:8000
+                     - 9000:9000
+              restart: always #if host os is restarted then container also restarts itself.
+# =======================================================================================================
+#                                  Nginx Section
+# =======================================================================================================
+
+       nginx:
+              build:
+                     context: /home/turboscript/Containers/Primary/Nginx
+                     dockerfile: Dockerfile
+              image: nginx:v1
+
+              volumes: #using bind-mount all files in directroy nginx is mounted to html
+                     
+                     - nginx_home:/etc/nginx/:rw
+
+              ports:
+                     - 9999:80 #host port is 9999 and port of container is 80
+              networks:
+                     test:
+
+              restart: always
+              deploy:
+                     replicas: 3
+                     restart_policy: 
+                            max_attempts: 2
+                            condition: on-failure
+                     # update_config:
+                     #        parallelism: 3
+                     #        delay: 10s
+       nginx2:
+              build:
+                     context: /home/turboscript/Containers/Primary/Nginx
+                     dockerfile: Dockerfile
+              image: nginx2:v1
+              volumes: #using bind-mount all files in directroy nginx is mounted to html
+                     - nginx_home:/etc/nginx/:rw
+              ports:
+                     - 9998:80 #host port is 9999 and port of container is 80
+              networks:
+                     test:
+              restart: always
+              deploy:
+                     replicas: 3
+                     restart_policy: 
+                            max_attempts: 2
+                            condition: on-failure
+
+# =======================================================================================================
+#                                  Jenkins Section
+# =======================================================================================================
+       jenkins:
+              image: jenkins/jenkins:lts-jdk11
+              privileged: true
+              user: root
+              volumes:
+                     - portainer_jenkins_home:/var/jenkins_home
+                     - /var/run/docker.sock:/var/run/docker.sock
+                     - /usr/local/bin/docker:/usr/local/bin/docker
+              ports:
+                     - 9997:8080
+                     - 50000:50000
+              networks:
+                     test:
+                     monitoring:
+              restart: always
+              deploy:
+                     replicas: 2
+                     restart_policy: 
+                            max_attempts: 2
+                            condition: on-failure
